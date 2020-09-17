@@ -67,17 +67,17 @@ public abstract class Worker implements WorkerInterface {
 	public void run() {
 		if(status.equals(Status.PENDING)) {
 			Timer timer = new Timer().start();
-			logger.info("Starting worker: {}", this.getThreadName());
+			LoggingTemplate.log(logger, LoggingTemplate.getWorkerStartLevel(), LoggingTemplate.getWorkerStart(), this.getThreadName());
 			status = Status.RUNNING;
 			try {
 				worker();
 				status = Status.SUCCESS;
 			} catch (Exception e) {
-				logger.error("An error occured while running the thread: {}", getThreadName(), e);
+				LoggingTemplate.log(logger, LoggingTemplate.getWorkerErrorLevel(), LoggingTemplate.getWorkerError(), getThreadName(), e);
 				status = Status.FAILED;
 			}
 			timer.stop();
-			logger.info("Worker {} Completed with status: {}. It ran for {}", this.getThreadName(), status, timer.toString());	
+			LoggingTemplate.log(logger, LoggingTemplate.getWorkerCompleteLevel(), LoggingTemplate.getWorkerComplete(), this.getThreadName(), status, timer.toString());
 		}
 	}
 }
