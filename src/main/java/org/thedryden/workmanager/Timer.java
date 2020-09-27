@@ -87,7 +87,7 @@ public class Timer {
 	}
 	/***
 	 * This will return the hours, minutes, seconds and milliseconds elapsed in this format: HH:mm:ss (SS milliseconds) such as: 03:14:12 (11652000 milliseconds)
-	 * @return
+	 * @return the hours, minutes, seconds and milliseconds elapsed in this format: HH:mm:ss (SS milliseconds) such as: 03:14:12 (11652000 milliseconds)
 	 */
 	public String toFancyString() {
 		if(start == -1)
@@ -95,23 +95,17 @@ public class Timer {
 		long duration = getSecondDuration();
 		StringBuilder output = new StringBuilder();
 		long temp = duration / MILLISECONDS_IN_HOUR_;
-		if(temp == 0L)
-			output.append("00");
-		else if (temp < 10L)
+		if (temp < 10L)
 			output.append("0");
 		output.append(NumberFormat.getInstance().format(temp)).append(":");
 		
 		temp = (duration % MILLISECONDS_IN_HOUR_) / MILLISECONDS_IN_MINUTES;
-		if(temp == 0L)
-			output.append("00");
-		else if (temp < 10L)
+		if (temp < 10L)
 			output.append("0");
 		output.append(temp).append(":");
 		
 		temp = ( duration % MILLISECONDS_IN_MINUTES ) / 1_000L;
-		if(temp == 0L)
-			output.append("00");
-		else if (temp < 10L)
+		if (temp < 10L)
 			output.append("0");
 		output.append(temp)
 			.append(" (").append(toString()).append(")");

@@ -22,7 +22,7 @@ public abstract class Worker implements WorkerInterface {
 	public Worker() {
 		precedenceConstraint = null;
 		threadName = this.getClass().getSimpleName();
-		logger = LoggerFactory.getLogger(this.getClass());
+		logger = LoggerFactory.getLogger(this.getThreadName());
 		status = Status.PENDING;
 	}
 	/***

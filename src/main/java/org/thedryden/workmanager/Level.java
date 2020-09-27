@@ -5,6 +5,6 @@ package org.thedryden.workmanager;
  * @author thedr
  *
  */
-public enum LoggingLevel {
+public enum Level {
 	trace, debug, info, warn, error, off
 }

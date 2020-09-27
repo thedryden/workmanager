@@ -1,6 +1,6 @@
 package org.thedryden.workmanager;
 
-public class PoolWrapper implements Runnable  {
+class PoolWrapper implements Runnable  {
 	private WorkerPool source;
 	private String poolName;
 	
