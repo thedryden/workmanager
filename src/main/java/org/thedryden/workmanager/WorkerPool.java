@@ -769,8 +769,6 @@ public class WorkerPool {
 					workerItr.remove();
 				} else if (StatusMeta.isFailed(aWorker.getStatus())) {
 					workerItr.remove();
-				} else {
-					signal.doWait();
 				}
 			}
 			if(waiting != null && waiting.size() > 0)

@@ -49,6 +49,12 @@ public abstract class Worker implements WorkerInterface {
 	public String getThreadName() {
 		return threadName;
 	}
+	public String getThreadNameAppend(String append) {
+		return getThreadName() + append;
+	}
+	public String getThreadNamePrepend(String prepend) {
+		return prepend + getThreadName();
+	}
 	/***
 	 * Returns the current status of this worker
 	 */
