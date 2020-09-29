@@ -1,5 +1,6 @@
 package org.thedryden.workmanager;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -38,6 +39,17 @@ public abstract class Worker implements WorkerInterface {
 		return precedenceConstraint;
 	}
 	/***
+	 * Adds a precedenceConstraint to the set of precedenceConstraint, creating a new set if nessisary
+	 * @param precedenceConstraint a thread name you wish to add to the precedenceConstraint
+	 * @return this - for method chaining
+	 */
+	public Worker addPrecedenceConstraint(String precedenceConstraint) {
+		if(this.precedenceConstraint == null)
+			this.precedenceConstraint = new HashSet<>();
+		this.precedenceConstraint.add(precedenceConstraint);
+		return this;
+	}
+	/***
 	 * Used to set the threadName to something other than the default: this.getClass().getSimpleName()
 	 */
 	public void setThreadName(String threadName) {
@@ -49,9 +61,19 @@ public abstract class Worker implements WorkerInterface {
 	public String getThreadName() {
 		return threadName;
 	}
+	/***
+	 * Returns the thread name, with the provided string appended to the end
+	 * @param append the string to append to the end of the thread name
+	 * @return the thread name, with the provided string appended to the end
+	 */
 	public String getThreadNameAppend(String append) {
 		return getThreadName() + append;
 	}
+	/***
+	 * Returns the thread name, with the provided string prepended to the end
+	 * @param prepend the string to prepend to the end of the thread name
+	 * @return the thread name, with the provided string prepended to the end
+	 */
 	public String getThreadNamePrepend(String prepend) {
 		return prepend + getThreadName();
 	}
