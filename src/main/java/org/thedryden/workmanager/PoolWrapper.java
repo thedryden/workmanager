@@ -15,7 +15,7 @@ class PoolWrapper implements Runnable  {
 	@Override
 	public void run() {
 		try {
-			source.startOnePool(poolName, false);
+			source.startOnePoolHelper(poolName);
 		} catch (InterruptedException | DuplicateThreadNameException | CircularPrecedenceConstraintException | AlreadyRunningException e) {
 			source.logger.error("Pool {}, failed with the following error: {}", poolName, e);
 		}

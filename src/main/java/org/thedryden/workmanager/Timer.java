@@ -92,7 +92,7 @@ public class Timer {
 	public String toFancyString() {
 		if(start == -1)
 			return "Timer has not been started yet";
-		long duration = getSecondDuration();
+		long duration = getDuration();
 		StringBuilder output = new StringBuilder();
 		long temp = duration / MILLISECONDS_IN_HOUR_;
 		if (temp < 10L)

@@ -39,7 +39,7 @@ public abstract class Worker implements WorkerInterface {
 		return precedenceConstraint;
 	}
 	/***
-	 * Adds a precedenceConstraint to the set of precedenceConstraint, creating a new set if nessisary
+	 * Adds a precedenceConstraint to the set of precedenceConstraint, creating a new set if necessary
 	 * @param precedenceConstraint a thread name you wish to add to the precedenceConstraint
 	 * @return this - for method chaining
 	 */
@@ -105,7 +105,7 @@ public abstract class Worker implements WorkerInterface {
 				status = Status.FAILED;
 			}
 			timer.stop();
-			LoggingTemplate.log(logger, LoggingTemplate.getWorkerCompleteLevel(), LoggingTemplate.getWorkerComplete(), this.getThreadName(), status, timer.toString());
+			LoggingTemplate.log(logger, LoggingTemplate.getWorkerCompleteLevel(), LoggingTemplate.getWorkerComplete(), this.getThreadName(), status, LoggingTemplate.applyTimerToString( timer ));
 		}
 	}
 }

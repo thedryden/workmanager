@@ -50,11 +50,11 @@ public class WorkerPool {
 	/***
 	 * Default value for stopAllRunningOnFailure.
 	 */
-	public static final boolean DEFAULT_STOP_ALL_RUNNING_ON_FAILURE = false;
-	protected boolean stopAllRunningOnFailure;
+	public static final boolean DEFAULT_NO_NEW_THREADS_ON_FAILURE = false;
+	protected boolean noNewThreadsOnFailure;
 	
 	/***
-	 * 
+	 * Default value for start next pool on failure
 	 */
 	public static final boolean START_NEXT_POOL_ON_FAILURE = true;
 	protected boolean startNextPoolOnFailure; 
@@ -64,14 +64,16 @@ public class WorkerPool {
 	 */
 	public static final long DEFAULT_SECONDS_BETWEEN_MSG = 600;
 	protected long secondsBetweenMsg;
-	
+	/***
+	 * Default seconds before warning
+	 */
 	public static final long DEFAULT_SECONDS_BEFORE_WARN = 1_200;
 	protected long secondsBeforeWarn;
 	
 	/***
 	 * Default value for exit on error
 	 */
-	public static final boolean DEFAULT_EXIT_ON_ERROR = false;
+	public static final boolean DEFAULT_EXIT_ON_ERROR = true;
 	protected boolean exitOnError;
 	
 	private String lastPoolKey = null;
@@ -96,7 +98,7 @@ public class WorkerPool {
 		lastMsg = new Hashtable<>();
 		lastWarn = new Hashtable<>();
 		maxThreadCount = DEFAULT_MAX_THREAD_COUNT;
-		stopAllRunningOnFailure = DEFAULT_STOP_ALL_RUNNING_ON_FAILURE;
+		noNewThreadsOnFailure = DEFAULT_NO_NEW_THREADS_ON_FAILURE;
 		secondsBetweenMsg = DEFAULT_SECONDS_BETWEEN_MSG;
 		secondsBeforeWarn = DEFAULT_SECONDS_BEFORE_WARN;
 		startNextPoolOnFailure = START_NEXT_POOL_ON_FAILURE;
@@ -124,7 +126,7 @@ public class WorkerPool {
 		return maxThreadCount;
 	}
 	/***
-	 * Sets the number of seconds between sending status messages. It is not guaranteed that status messages will be sent at exsactly the provided time interval, particularly if the interval is less than 30 seconds.
+	 * Sets the number of seconds between sending status messages. It is not guaranteed that status messages will be sent at exactly the provided time interval, particularly if the interval is less than 30 seconds.
 	 * @param timeBetweenMsg seconds between sending status messages while running.
 	 * @return this - for method chaining.
 	 */
@@ -140,20 +142,34 @@ public class WorkerPool {
 		return secondsBetweenMsg;
 	}
 	/***
-	 * If set to true then if any threads fail then no more threads will be started.
-	 * @param stopAllRunningOnFailure the new value for stopAllRunningOnFailure
+	 * Returns the time between warning messages.
+	 * @return the time between warning messages.
+	 */
+	public long getSecondsBeforeWarn() {
+		return secondsBeforeWarn;
+	}
+	/***
+	 * Sets the number of seconds between sending warning status messages. These messages differ from status messages only that they are sent with a Level of warning.
+	 * @param secondsBeforeWarn the new time between warning messages.
+	 */
+	public void setSecondsBeforeWarn(long secondsBeforeWarn) {
+		this.secondsBeforeWarn = secondsBeforeWarn;
+	}
+	/***
+	 * If set to true then if any threads fail in a pool, no more workers in that pool will be started.
+	 * @param noNewThreadsOnFailure the new value for stopAllRunningOnFailure
 	 * @return this - for method chaining.
 	 */
-	public WorkerPool setStopAllRunningOnFailure( boolean stopAllRunningOnFailure ) {
-		this.stopAllRunningOnFailure = stopAllRunningOnFailure;
+	public WorkerPool setNoNewThreadsOnFailure( boolean noNewThreadsOnFailure ) {
+		this.noNewThreadsOnFailure = noNewThreadsOnFailure;
 		return this;
 	}
 	/***
 	 * Returns stopAllRunningOnFailure
 	 * @return stopAllRunningOnFailure
 	 */
-	public boolean isStopAllRunningOnFailure() {
-		return stopAllRunningOnFailure;
+	public boolean isNoNewThreadsOnFailure() {
+		return noNewThreadsOnFailure;
 	}
 	/***
 	 * Returns the value for the property: don't start next pool on failure.
@@ -163,23 +179,24 @@ public class WorkerPool {
 		return startNextPoolOnFailure;
 	}
 	/***
-	 * Used to set the value for the property: don't start next pool on failure. When this is true (the default) and the start method will run the next pool even if the last pool did not end with the status success. If this is false, then the start method will not call the next pool if the last pool did not end in success.
-	 * @param dontStartNextPoolOnFailure the new value for don't start next pool on failure.
+	 * Used to set the value for the property: start next pool on failure. When this is false and either start or startPools is called they will not start the next pool if the previous pool failed. If this is true, then the next pool will start regardless of the status of the last pool.
+	 * @param startNextPoolOnFailure the new value for don't start next pool on failure.
 	 * @return this - for method chaining.
 	 */
-	public WorkerPool setStartNextPoolOnFailure(boolean dontStartNextPoolOnFailure) {
-		this.startNextPoolOnFailure = dontStartNextPoolOnFailure;
+	public WorkerPool setStartNextPoolOnFailure(boolean startNextPoolOnFailure) {
+		this.startNextPoolOnFailure = startNextPoolOnFailure;
 		return this;
 	}
 	/***
-	 * When this is true, if after a pool completes the composite status of a pool, as returned by getStatus, is FAILED then Syste.exit(-1) will be called.
+	 * If true when start, startPools, startAsyncAndJoin, or startOnePool is called at the end of execution of all pools, if the aggregate status for all pools is failure then start will cause System.exit(-1) to be called.
+	 * If false do nothing
 	 * @return the value for exitOnError
 	 */
 	public boolean isExitOnError() {
 		return exitOnError;
 	}
 	/***
-	 * Used to set exitOnError. When this is true, if after a pool completes the composite status of a pool, as returned by getStatus, is FAILED then Syste.exit(-1) will be called. When false this will continue to run.
+	 * Used to set exitOnError. If true when start, startPools, startAsyncAndJoin, or startOnePool is called at the end of execution of all pools, if the aggregate status for all pools is failure then start will cause System.exit(-1) to be called.
 	 * @param exitOnError the value you wish to set  for exit on error
 	 * @return this - for method chaining
 	 */
@@ -222,7 +239,7 @@ public class WorkerPool {
 		return output;
 	}
 	/***
-	 * Takes a pool name and a list of worker objects and sets / replaces the entire list of workers associated with that pool
+	 * Takes a pool name and a list of worker objects and sets / replaces the entire list of workers associated within that pool
 	 * @param poolName the name of the pool you want to attach the list of workers to.
 	 * @param workers the list of workers you with to set / replace the workers for the pool with
 	 * @return this - for method chaining.
@@ -266,7 +283,7 @@ public class WorkerPool {
 		return this;
 	}
 	/***
-	 * Sets the last worker added with either addWorker method to the Not In All list. Workers in the Not In All pool will not be run if ALL arg is passed as the runArg, or no runArg is passed at all. To run these you must explicitly add the name of the name of the worker to the runArg.
+	 * Sets the last worker added with either the addWorker method to the Not In All list. Workers in the Not In All pool will not be run if ALL arg is passed as the runArg, or no runArg is passed at all. To run these you must explicitly add the name of the name of the worker to the runArg.
 	 * @return this - for method chaining.
 	 */
 	public WorkerPool setNotInAll() {
@@ -554,38 +571,24 @@ public class WorkerPool {
 		return this;
 	}
 	/***
-	 * Starts all pools in the order they were added and then runs all workers in the order they were added.
+	 * Starts all pools in the order they were added.
 	 * @return this - for method chaining.
 	 * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
 	 * @throws DuplicateThreadNameException thrown if any thread name is duplicated, even across pools
 	 * @throws CircularPrecedenceConstraintException thrown if two workers both list each other as Precedence Constraints
-	 * @throws AlreadyRunningException thrown if this pool is already running
+	 * @throws AlreadyRunningException thrown if a pool that is already running is asked to start
 	 */
 	public WorkerPool start() throws InterruptedException, DuplicateThreadNameException, CircularPrecedenceConstraintException, AlreadyRunningException {
-		Timer timer = new Timer().start();
-		if(keys.size() > 1)
-			LoggingTemplate.log(logger, LoggingTemplate.getPoolStartAllPollsLevel(), LoggingTemplate.getPoolStartAllPools(), keys.size());
-		//startOnePool removes the key from the pool when its done
-		while(keys.size() > 0) {
-			String poolKey = keys.get(0);
-			startOnePool(poolKey);
-			if(!startNextPoolOnFailure && keys.size() > 0 && !getStatus(poolKey).equals(Status.SUCCESS)) {
-				LoggingTemplate.log(logger, LoggingTemplate.getPoolStopingNextPoolOnErrorLevel(), LoggingTemplate.getPoolStopingNextPoolOnError(), poolKey);
-				break;
-			}
-		}
-		timer.stop();
-		if(keys.size() > 1)
-			LoggingTemplate.log(logger, LoggingTemplate.getPoolFinishedStartLevel(), LoggingTemplate.getPoolStartFinished(), timer.toString());
+		startPools(keys.toArray(new String[keys.size()]));
 		return this;
 	}
 	/***
-	 * Starts all pools at the same time asynchronously and then runs all workers. Does not support startNextPoolOnFailure = false, since all pools are started at the same time.
+	 * Starts all pools at the same time asynchronously. Does not support startNextPoolOnFailure = false, since all pools are started at the same time.
 	 * Note this does not block execution until it completes for that use startAsyncAndJoin
 	 * @return this - for method chaining.
 	 * @throws DuplicateThreadNameException thrown if any thread name is duplicated, even across pools
 	 * @throws CircularPrecedenceConstraintException thrown if two workers both list each other as Precedence Constraints
-	 * @throws AlreadyRunningException thrown if this pool is already running
+	 * @throws AlreadyRunningException thrown if a pool that is already running is asked to start
 	 */
 	public WorkerPool startAsync() throws AlreadyRunningException, DuplicateThreadNameException, CircularPrecedenceConstraintException {
 		if(keys.size() > 1)
@@ -597,28 +600,24 @@ public class WorkerPool {
 		return this;
 	}
 	/***
-	 * Starts all pools at the same time asynchronously and then runs all workers and then blocks execution until they complete. Does not support startNextPoolOnFailure = false, since all pools are started at the same time.
+	 * Starts all pools at the same time asynchronously and then blocks execution until they complete. Does not support startNextPoolOnFailure = false, since all pools are started at the same time.
 	 * @return this - for method chaining
-	 * @throws AlreadyRunningException thrown if this pool is already running
+	 * @throws AlreadyRunningException thrown if a pool that is already running is asked to start
 	 * @throws DuplicateThreadNameException thrown if any thread name is duplicated, even across pools
 	 * @throws CircularPrecedenceConstraintException thrown if two workers both list each other as Precedence Constraints
 	 * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
 	 */
 	public WorkerPool startAsyncAndJoin() throws AlreadyRunningException, DuplicateThreadNameException, CircularPrecedenceConstraintException, InterruptedException {
-		String[] pools = keys.toArray(new String[keys.size()]);
-		startAsync();
-		joinPools(0, pools);
-		
-		return this;
+		return startPoolsAsyncAndJoin(keys.toArray(new String[keys.size()]));
 	}
 	/***
-	 * Starts the passed pool then runs all workers in the order they were added. Once completed this pool will be removed from the list of pools that will be started with the start method.
+	 * Starts the passed pool. Once completed this pool will be removed from the list of pools that will be started with the start method.
 	 * @param poolName The name of the pool of workers you wish to run
 	 * @return this - for method chaining.
 	 * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
 	 * @throws DuplicateThreadNameException thrown if any thread name is duplicated, even across pools
 	 * @throws CircularPrecedenceConstraintException thrown if two workers both list each other as Precedence Constraints
-	 * @throws AlreadyRunningException thrown if this pool is already running.
+	 * @throws AlreadyRunningException thrown if a pool that is already running is asked to start
 	 */
 	public WorkerPool startOnePool( String poolName ) throws InterruptedException, DuplicateThreadNameException, CircularPrecedenceConstraintException, AlreadyRunningException {
 		if(poolRunning.containsKey(poolName)) {
@@ -630,15 +629,67 @@ public class WorkerPool {
 		checkThreadNames();
 		checkForPrecedenceLoop();
 		
-		return startOnePool(poolName, true);
+		startOnePoolHelper(poolName);
+		
+		if(exitOnError && getStatus(poolName).equals(Status.FAILED)) {
+			LoggingTemplate.log(logger, LoggingTemplate.getPoolExitOnErrorLevel(), LoggingTemplate.getPoolExitOnError(), poolName);
+			System.exit(-1);
+		}
+		
+		return this;
 	}
 	/***
-	 * Starts the passed pool, without blocking until completion, then runs all workers in the order they were added. Once completed this pool will be removed from the list of pools that will be started with the start method.
+	 * Starts the passed pools, running them one at a time in the order they were passed - not added. Once completed these pools will be removed from the list of pools that will be started with the start method.
+	 * @param poolNames one or more poolName in a list or a array of poolNames
+	 * @return this - for method chaining
+	 * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
+	 * @throws DuplicateThreadNameException thrown if any thread name is duplicated, even across pools
+	 * @throws CircularPrecedenceConstraintException thrown if two workers both list each other as Precedence Constraints
+	 * @throws AlreadyRunningException thrown if a pool that is already running is asked to start
+	 */
+	public WorkerPool startPools(String ...poolNames) throws DuplicateThreadNameException, CircularPrecedenceConstraintException, InterruptedException, AlreadyRunningException {
+		checkThreadNames();
+		checkForPrecedenceLoop();
+		
+		Timer timer = new Timer().start();
+		boolean log = keys.size() > 1;
+		if(log)
+			LoggingTemplate.log(logger, LoggingTemplate.getPoolStartAllPollsLevel(), LoggingTemplate.getPoolStartAllPools(), poolNames.length);
+		
+		for(int i = 0; i < poolNames.length; i++) {
+			String aPoolName = poolNames[i];
+			if(poolRunning.containsKey(aPoolName)) {
+				throw new AlreadyRunningException("The pool " + aPoolName + " is already running.");
+			} else {
+				poolRunning.put(aPoolName,dummy);
+			}
+			
+			startOnePoolHelper(aPoolName);
+			
+			if(!startNextPoolOnFailure && ( i + 1 ) < poolNames.length && !getStatus(aPoolName).equals(Status.SUCCESS)) {
+				LoggingTemplate.log(logger, LoggingTemplate.getPoolStopingNextPoolOnErrorLevel(), LoggingTemplate.getPoolStopingNextPoolOnError(), aPoolName);
+				break;
+			}
+		}
+		
+		timer.stop();
+		if(log)
+			LoggingTemplate.log(logger, LoggingTemplate.getPoolFinishedStartLevel(), LoggingTemplate.getPoolStartFinished(), LoggingTemplate.applyTimerToString( timer ));
+		
+		if(exitOnError && getStatus(poolNames).equals(Status.FAILED)) {
+			LoggingTemplate.log(logger, LoggingTemplate.getPoolExitOnErrorLevel(), LoggingTemplate.getPoolExitOnError(), getFailedPools(poolNames));
+			System.exit(-1);
+		}
+		
+		return this;
+	}
+	/***
+	 * Starts the passed pool, without blocking until completion. Once completed this pool will be removed from the list of pools that will be started with the start method.
 	 * @param poolName The name of the pool of workers you wish to run
 	 * @return this - for method chaining.
 	 * @throws DuplicateThreadNameException thrown if any thread name is duplicated, even across pools
 	 * @throws CircularPrecedenceConstraintException thrown if two workers both list each other as Precedence Constraints
-	 * @throws AlreadyRunningException thrown if this pool is already running.
+	 * @throws AlreadyRunningException thrown if a pool that is already running is asked to start
 	 */
 	public WorkerPool startOnePoolAsync( String poolName ) throws AlreadyRunningException, DuplicateThreadNameException, CircularPrecedenceConstraintException {
 		if(poolRunning.containsKey(poolName)) {
@@ -646,6 +697,7 @@ public class WorkerPool {
 		} else {
 			poolRunning.put(poolName,dummy);
 		}
+		keys.remove(poolName);
 		
 		checkThreadNames();
 		checkForPrecedenceLoop();
@@ -658,14 +710,17 @@ public class WorkerPool {
 		return this;
 	}
 	/***
-	 * Starts the passed pools, without blocking until completion, then runs all workers in the order they were added. Once completed this pool will be removed from the list of pools that will be started with the start method.
+	 * Starts the passed pools, without blocking until completion. Once started a pool will be removed from the list of pools that will be started with the start method.
 	 * @param poolNames one or more poolName in a list or a array of poolNames
 	 * @return this - for method chaining
-	 * @throws AlreadyRunningException thrown if this pool is already running.
+	 * @throws AlreadyRunningException thrown if a pool that is already running is asked to start
 	 * @throws DuplicateThreadNameException thrown if any thread name is duplicated, even across pools
 	 * @throws CircularPrecedenceConstraintException thrown if two workers both list each other as Precedence Constraints
 	 */
 	public WorkerPool startPoolsAsync(String ...poolNames) throws AlreadyRunningException, DuplicateThreadNameException, CircularPrecedenceConstraintException {
+		if(poolNames.length > 1)
+			LoggingTemplate.log(logger, LoggingTemplate.getPoolStartAllPollsLevel(), LoggingTemplate.getPoolStartAllPools(), poolNames.length);
+		
 		if(poolNames != null && poolNames.length > 0) {
 			for(String aPool : poolNames) {
 				startOnePoolAsync( aPool );
@@ -674,24 +729,36 @@ public class WorkerPool {
 		return this;
 	}
 	/***
-	 * Used to start multiple pool asynchronous, but then wait for all pools to complete before we coninute.
+	 * Used to start multiple pool asynchronous, but then wait for all pools to complete before continuing.
 	 * This is just a convince function that calls startPoolAysnc followed by joinPools (with 0 from waitMilliseconds).
 	 * @param poolNames one or more poolName in a list or a array of poolNames
 	 * @return this - for method chaining
-	 * @throws AlreadyRunningException thrown if this pool is already running.
+	 * @throws AlreadyRunningException thrown if a pool that is already running is asked to start
 	 * @throws DuplicateThreadNameException thrown if any thread name is duplicated, even across pools
 	 * @throws CircularPrecedenceConstraintException thrown if two workers both list each other as Precedence Constraints
 	 * @throws InterruptedException Thrown when a thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted, either before or during the activity.
 	 */
 	public WorkerPool startPoolsAsyncAndJoin(String ...poolNames) throws AlreadyRunningException, DuplicateThreadNameException, CircularPrecedenceConstraintException, InterruptedException {
+		Timer timer = new Timer().start();
+		boolean log = keys.size() > 1;
+		
 		startPoolsAsync(poolNames);
 		joinPools(0, poolNames);
+		
+		timer.stop();
+		if(log)
+			LoggingTemplate.log(logger, LoggingTemplate.getPoolFinishedStartLevel(), LoggingTemplate.getPoolStartFinished(), LoggingTemplate.applyTimerToString( timer ));
+		
+		if(exitOnError && getStatus(poolNames).equals(Status.FAILED)) {
+			LoggingTemplate.log(logger, LoggingTemplate.getPoolExitOnErrorLevel(), LoggingTemplate.getPoolExitOnError(), getFailedPools(poolNames));
+			System.exit(-1);
+		}
 		return this;
 	}
 	
-	WorkerPool startOnePool( String poolName, boolean check) throws InterruptedException, DuplicateThreadNameException, CircularPrecedenceConstraintException, AlreadyRunningException {
+	WorkerPool startOnePoolHelper( String poolName) throws InterruptedException, DuplicateThreadNameException, CircularPrecedenceConstraintException, AlreadyRunningException {
 		if(pools.get(poolName).isEmpty()) {
-			LoggingTemplate.log(logger, LoggingTemplate.getPoolEmptyLevel(), LoggingTemplate.getPoolEmpty(),poolName);
+			LoggingTemplate.log(logger, LoggingTemplate.getPoolEmptyLevel(), LoggingTemplate.getPoolEmpty(), poolName);
 			keys.remove(poolName);
 			return this;
 		}
@@ -738,7 +805,7 @@ public class WorkerPool {
 				myPool.remove(0);
 			}
 			
-			if(stopAllRunningOnFailure && getStatus( poolName ) == Status.FAILED){
+			if(noNewThreadsOnFailure && getStatus( poolName ) == Status.FAILED){
 				keepGoing = false;
 				LoggingTemplate.log(logger, LoggingTemplate.getPoolStopNextWorkerOnErrorLevel(), LoggingTemplate.getPoolStopNextWorkerOnError(), poolName);
 				break;
@@ -773,7 +840,7 @@ public class WorkerPool {
 			}
 			if(waiting != null && waiting.size() > 0)
 				signal.doWait();
-			if(stopAllRunningOnFailure && getStatus( poolName ) == Status.FAILED) {
+			if(noNewThreadsOnFailure && getStatus( poolName ) == Status.FAILED) {
 				LoggingTemplate.log(logger, LoggingTemplate.getPoolStopNextWorkerOnErrorLevel(), LoggingTemplate.getPoolStopNextWorkerOnError(), poolName);
 				break;
 			}
@@ -795,11 +862,6 @@ public class WorkerPool {
 		lastMsg.remove(poolName);
 		lastWarn.remove(poolName);
 		
-		if(exitOnError && getStatus(poolName).equals(Status.FAILED)) {
-			LoggingTemplate.log(logger, LoggingTemplate.getPoolExitOnErrorLevel(), LoggingTemplate.getPoolExitOnError(), poolName);
-			System.exit(-1);
-		}
-		
 		if(poolRunning.containsKey(poolName))
 			poolRunning.remove(poolName);
 		return this;
@@ -814,7 +876,7 @@ public class WorkerPool {
 	public WorkerPool joinPool( int waitMilliseconds, String poolName ) throws InterruptedException {
 		if(poolRunning.containsKey(poolName) && poolRunning.get(poolName).isAlive()){
 			poolRunning.get(poolName).join(waitMilliseconds);
-			if(poolRunning.get(poolName).isAlive())
+			if(poolRunning.get(poolName) != null && poolRunning.get(poolName).isAlive())
 				throw new InterruptedException("Pool " + poolName + " is still running after waitMilliseconds elapsed") ;
 		}
 		return this;
@@ -873,6 +935,44 @@ public class WorkerPool {
 		}
 		return output;
 	}
+	/***
+	 * Gets the composite status of the passed pools.
+	 * @param poolNames the name of the pools you want to check
+	 * @return the composite status of the pools
+	 */
+	public Status getStatus( String ...poolNames ) {
+		Status output = null;
+		for(String aPoolName : poolNames) {
+			Status aStatus = getStatus(aPoolName);
+			if(output == null) {
+				output = aStatus;
+			} else if ( StatusMeta.getSeverity(aStatus) < StatusMeta.getSeverity(output) ) {
+				output = aStatus;
+			}
+		}
+		return output;
+	}
+	/***
+	 * Gets the composite status of all pools.
+	 * @return The composite status of all pools.
+	 */
+	public Status getAllStatus() {
+		Set<String> statusList = pools.keySet();
+		return getStatus(statusList.toArray(new String[statusList.size()]));
+	}
+	
+	private String getFailedPools( String ...poolNames ) {
+		StringBuilder output = new StringBuilder();
+		First first = new First();
+		for(String aPoolName : poolNames) {
+			if(getStatus(aPoolName).equals(Status.FAILED)) {
+				if(!first.first())
+					output.append(", ");
+				output.append(aPoolName);
+			}
+		}
+		return output.toString();
+	}
 	
 	private void logStart( String aKey ) {
 		StringBuilder output = new StringBuilder();
@@ -899,7 +999,7 @@ public class WorkerPool {
 		long waitTime = -1;
 		if(running) {
 			level = Level.off;
-			if(timer.getSecondDuration() - lastWarn.get(aKey) > secondsBetweenMsg) {
+			if(timer.getSecondDuration() - lastWarn.get(aKey) > secondsBeforeWarn) {
 				level = Level.warn;
 				lastMsg.put(aKey, timer.getSecondDuration());
 				lastWarn.put(aKey, timer.getSecondDuration());
@@ -908,7 +1008,7 @@ public class WorkerPool {
 				lastMsg.put(aKey, timer.getSecondDuration());
 			}
 			waitTime = secondsBetweenMsg - ( timer.getSecondDuration() - lastMsg.get(aKey) )+1;
-			long warnTime = secondsBetweenMsg - ( timer.getSecondDuration() - lastWarn.get(aKey) )+1;
+			long warnTime = secondsBeforeWarn - ( timer.getSecondDuration() - lastWarn.get(aKey) )+1;
 			if(waitTime > warnTime)
 				waitTime = warnTime;
 			if(level.equals(Level.off))

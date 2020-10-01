@@ -1,5 +1,7 @@
 package org.thedryden.workmanager;
 
+import java.util.function.Function;
+
 import org.slf4j.Logger;
 /***
  * The purpose of this package is to allow you to customize how the logging messages and their levels.
@@ -30,7 +32,9 @@ public class LoggingTemplate {
 	protected static Level poolStopNextWorkerOnErrorLevel = Level.info;
 	protected static String poolExitOnError = "Pool {} failed so this application is exiting with status code -1.";
 	protected static Level poolExitOnErrorLevel = Level.error;
-	
+	private static Function<Timer,String> timerToString = t -> {
+		return t.toFancyString();
+	};
 	/***
 	 * Takes an existing logger and allows you to select a LoggingLevel at run time, rather than having to hard code your selection.
 	 * @param logger the logger you wish to call
@@ -380,5 +384,27 @@ public class LoggingTemplate {
 	 */
 	public static void setPoolExitOnErrorLevel(Level poolExitOnErrorLevel) {
 		LoggingTemplate.poolExitOnErrorLevel = poolExitOnErrorLevel;
+	}
+	/***
+	 * Returns the function used to convert a Timer to a string for logging.
+	 * @return the function used to convert a Timer to a string for logging.
+	 */
+	public static Function<Timer, String> getTimerToString() {
+		return timerToString;
+	}
+	/***
+	 * Sets the function used to convert a Timer to a string for logging. Default is .toString()
+	 * @param timerToString the function used to convert a Timer to a string for logging.
+	 */
+	public static void setTimerToString(Function<Timer, String> timerToString) {
+		LoggingTemplate.timerToString = timerToString;
+	}
+	/***
+	 * Helper function for directly applying the TimerToString function to a timer in one call.
+	 * @param aTimer a timer you wish to convert to a string
+	 * @return a string that represents the timer
+	 */
+	public static String applyTimerToString(Timer aTimer) {
+		return timerToString.apply(aTimer);
 	}
 }
