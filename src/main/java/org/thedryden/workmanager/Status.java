@@ -5,5 +5,5 @@ package org.thedryden.workmanager;
  *
  */
 public enum Status {
-	PENDING, RUNNING, SUCCESS, FAILED, PRECEDENCE_FAILED
+	EMPTY, PENDING, RUNNING, SUCCESS, FAILED, PRECEDENCE_FAILED
 }

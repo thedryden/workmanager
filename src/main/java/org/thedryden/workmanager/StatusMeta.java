@@ -21,6 +21,7 @@ public final class StatusMeta {
 		STATUS_SEVERITY.put(Status.PENDING,2);
 		STATUS_SEVERITY.put(Status.RUNNING,4);
 		STATUS_SEVERITY.put(Status.SUCCESS,5);
+		STATUS_SEVERITY.put(Status.EMPTY,5);
     }
 	/***
 	 * Takes a status and returns that statuses severity. When deciding the outcome of a pool, status severity is used to determine, which status wins. Lower is higher priority.
@@ -44,6 +45,7 @@ public final class StatusMeta {
 		STATUS_OPEN.put(Status.PENDING,true);
 		STATUS_OPEN.put(Status.RUNNING,true);
 		STATUS_OPEN.put(Status.SUCCESS,false);
+		STATUS_OPEN.put(Status.EMPTY,false);
     }
 	/***
 	 * Takes a status and returns true if that status is considered open. If closed (false) than the status should never change.
@@ -67,6 +69,7 @@ public final class StatusMeta {
 		STATUS_FAILED.put(Status.PENDING,false);
 		STATUS_FAILED.put(Status.RUNNING,false);
 		STATUS_FAILED.put(Status.SUCCESS,false);
+		STATUS_FAILED.put(Status.EMPTY,false);
     }
 	/***
 	 * Takes a status and returns true if the status means a failure, false if not

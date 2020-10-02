@@ -471,10 +471,10 @@ public class WorkerPool {
 		for(String aConstraint : toCheck.getPrecedenceConstraint()) {
 			for(WorkerInterface aWorker : pool) {
 				if(aConstraint.equals(aWorker.getThreadName())) {
-					if(StatusMeta.isFailed(aWorker.getStatus())) {
+					if(StatusMeta.isFailed(getWorkerStatus(aWorker))) {
 						toCheck.setStatus(Status.PRECEDENCE_FAILED);
 						return false;
-					} else if (!aWorker.getStatus().equals(Status.SUCCESS)) {
+					} else if (!getWorkerStatus(aWorker).equals(Status.SUCCESS)) {
 						return false;
 					}
 				}
@@ -834,7 +834,7 @@ public class WorkerPool {
 					}
 					//remove from waiting 
 					workerItr.remove();
-				} else if (StatusMeta.isFailed(aWorker.getStatus())) {
+				} else if (StatusMeta.isFailed(getWorkerStatus(aWorker))) {
 					workerItr.remove();
 				}
 			}
@@ -918,6 +918,11 @@ public class WorkerPool {
 				signal.doWait();
 		}
 	}
+	private Status getWorkerStatus(WorkerInterface worker) {
+		if(worker.getStatus() == null)
+			return Status.EMPTY;
+		return worker.getStatus();
+	}
 	
 	/***
 	 * Gets the composite status of an entire pool.
@@ -925,12 +930,12 @@ public class WorkerPool {
 	 * @return the composite status of the pool
 	 */
 	public Status getStatus( String poolName ) {
-		Status output = null;
+		Status output = Status.EMPTY;
 		int min = Integer.MAX_VALUE;
 		for(WorkerInterface aWorker : pools.get(poolName)) {
-			if(StatusMeta.getSeverity(aWorker.getStatus()) < min) {
-				min = StatusMeta.getSeverity(aWorker.getStatus());
-				output = aWorker.getStatus();
+			if(StatusMeta.getSeverity(getWorkerStatus(aWorker)) < min) {
+				min = StatusMeta.getSeverity(getWorkerStatus(aWorker));
+				output = getWorkerStatus(aWorker);
 			}
 		}
 		return output;
@@ -941,7 +946,7 @@ public class WorkerPool {
 	 * @return the composite status of the pools
 	 */
 	public Status getStatus( String ...poolNames ) {
-		Status output = null;
+		Status output = Status.EMPTY;
 		for(String aPoolName : poolNames) {
 			Status aStatus = getStatus(aPoolName);
 			if(output == null) {
@@ -1024,7 +1029,7 @@ public class WorkerPool {
 		}
 		
 		for(WorkerInterface aWorker : pools.get(aKey)) {
-			output.append("\n\tWorker: ").append(aWorker.getThreadName()).append(" : ").append(aWorker.getStatus());
+			output.append("\n\tWorker: ").append(aWorker.getThreadName()).append(" : ").append(getWorkerStatus(aWorker));
 			Set<String> pc = getCurrentPrecedenceConstraint( aWorker, aKey);
 			if(pc.size() > 0) {
 				output.append(" (Waiting on thread").append((pc.size() > 1) ? "s" : "").append(": ");
@@ -1050,7 +1055,7 @@ public class WorkerPool {
 		for(String aConstraint : toCheck.getPrecedenceConstraint()) {
 			for(WorkerInterface aWorker : pool) {
 				if(aConstraint.equalsIgnoreCase(aWorker.getThreadName())) {
-					if(StatusMeta.isOpen(aWorker.getStatus())) {
+					if(StatusMeta.isOpen(getWorkerStatus(aWorker))) {
 						output.add(aWorker.getThreadName());
 					}
 				}
