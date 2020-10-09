@@ -32,6 +32,8 @@ public class LoggingTemplate {
 	protected static Level poolStopNextWorkerOnErrorLevel = Level.info;
 	protected static String poolExitOnError = "Pool {} failed so this application is exiting with status code -1.";
 	protected static Level poolExitOnErrorLevel = Level.error;
+	protected static String retry = "{} {} failed, but its has been set to retry {} times. Starting retry {} after waiting {} seconds.";
+	protected static Level retryLevel = Level.warn;
 	private static Function<Timer,String> timerToString = t -> {
 		return t.toFancyString();
 	};
@@ -384,6 +386,34 @@ public class LoggingTemplate {
 	 */
 	public static void setPoolExitOnErrorLevel(Level poolExitOnErrorLevel) {
 		LoggingTemplate.poolExitOnErrorLevel = poolExitOnErrorLevel;
+	}
+	/***
+	 * Returns the current message that will display when either a worker or pool retries after a failure.
+	 * @return the current message that will display when either a worker or pool retries after a failure.
+	 */
+	public static String getRetry() {
+		return retry;
+	}
+	/***
+	 * Used to override the default message that will display when either a worker or pool retries after a failure. Takes 5 parameters: 1) If this is a worker or pool, 2) the threadName of the worker or name of the pool 3) the number value of retryAttempts, 4) the current retry number, 5) the value of retryWaitSeconds.
+	 * @param retry the new message that will display when either a worker or pool retries after a failure.
+	 */
+	public static void setRetry(String retry) {
+		LoggingTemplate.retry = retry;
+	}
+	/***
+	 * Returns the logging level for when either a worker or pool retries after a failure.
+	 * @return the logging level for when either a worker or pool retries after a failure.
+	 */
+	public static Level getRetryLevel() {
+		return retryLevel;
+	}
+	/***
+	 * Used to overwrite the default logging level when either a worker or pool retries after a failure. This logging level will also be used to log the error that caused the retry.
+	 * @param retryLevel the new logging level when either a worker or pool retries after a failure.
+	 */
+	public static void setRetryLevel(Level retryLevel) {
+		LoggingTemplate.retryLevel = retryLevel;
 	}
 	/***
 	 * Returns the function used to convert a Timer to a string for logging.

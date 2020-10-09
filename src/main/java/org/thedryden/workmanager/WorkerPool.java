@@ -34,6 +34,9 @@ public class WorkerPool {
 	
 	protected List<String> keys;
 	protected Map<String,List<WorkerInterface>> pools;
+	protected Map<String,Integer> poolRetry;
+	protected Map<String,Integer> poolRetryWaitSeconds;
+	protected Map<String,Boolean> poolRetryRerunSuccess;
 	protected Map<String,Thread> poolRunning;
 	protected Thread dummy;
 	protected List<String> notInAll;
@@ -95,6 +98,9 @@ public class WorkerPool {
 			this.logger = logger;
 		keys = new ArrayList<>();
 		pools = new Hashtable<>();
+		poolRetry = new Hashtable<>();
+		poolRetryWaitSeconds = new Hashtable<>(); 
+		poolRetryRerunSuccess = new Hashtable<>(); 
 		lastMsg = new Hashtable<>();
 		lastWarn = new Hashtable<>();
 		maxThreadCount = DEFAULT_MAX_THREAD_COUNT;
@@ -239,6 +245,48 @@ public class WorkerPool {
 		return output;
 	}
 	/***
+	 * For the last pool added sets a number of retry to attempt on a failure and the number of seconds to wait before after a failure before the retry.
+	 * @param retryAttempts the number of times you wish to retry the pool in the even of a failure
+	 * @param retryWaitSeconds the number of seconds to wait after a failure before you retry.
+	 * @param rerunSuccess if true all workers will be rerun. If false then any workers that already completed with status success will be skipped.
+	 * @return this - for method chaining
+	 */
+	public WorkerPool setRetry(int retryAttempts, int retryWaitSeconds, boolean rerunSuccess) {
+		if(lastPoolKey == null)
+			throw new ArrayIndexOutOfBoundsException("No pools have been added yet");	
+		return setRetry(lastPoolKey, retryAttempts, retryWaitSeconds, rerunSuccess);
+	}
+	/***
+	 * For the passed poolName added sets a number of retry to attempt on a failure and the number of seconds to wait before after a failure before the retry.
+	 * @param poolName the name of the pool you wish to configure
+	 * @param retryAttempts the number of times you wish to retry the pool in the even of a failure
+	 * @param retryWaitSeconds the number of seconds to wait after a failure before you retry.
+	 * @param rerunSuccess if true all workers will be rerun. If false then any workers that already completed with status success will be skipped.
+	 * @return this - for method chaining
+	 */
+	public WorkerPool setRetry(String poolName, int retryAttempts, int retryWaitSeconds, boolean rerunSuccess) {
+		poolRetry.put(poolName, retryAttempts);
+		poolRetryWaitSeconds.put(poolName, retryWaitSeconds);
+		poolRetryRerunSuccess.put(poolName, rerunSuccess);
+		return this;
+	}
+	/***
+	 * Returns the number of retry attempts for the passed poolName
+	 * @param poolName the pool name you wish to lookup a value for
+	 * @return the number of retry attempts for the passed poolName
+	 */
+	public int getRetryAttempt(String poolName) {
+		return poolRetry.get(poolName);
+	}
+	/***
+	 * Returns the number of seconds to wait after a failure to retry
+	 * @param poolName the pool name you wish to lookup a value for
+	 * @return the number of seconds to wait after a failure to retry
+	 */
+	public int getRetryWaitSeconds(String poolName) {
+		return poolRetryWaitSeconds.get(poolName);
+	}
+	/***
 	 * Takes a pool name and a list of worker objects and sets / replaces the entire list of workers associated within that pool
 	 * @param poolName the name of the pool you want to attach the list of workers to.
 	 * @param workers the list of workers you with to set / replace the workers for the pool with
@@ -378,7 +426,7 @@ public class WorkerPool {
 	 * @return this - for method chaining
 	 */
 	public WorkerPool setPrecedenceConstraint(String threadName, Set<String> precedenceConstraint) {
-		WorkerInterface target = findWorker(threadName);
+		WorkerInterface target = getWorker(threadName);
 		target.setPrecedenceConstraint(precedenceConstraint);
 		return this;
 	}
@@ -389,10 +437,33 @@ public class WorkerPool {
 	 * @return this - for method chaining
 	 */
 	public WorkerPool addPrecedenceConstraint(String threadName, String precedenceConstraint) {
-		WorkerInterface target = findWorker(threadName);
+		WorkerInterface target = getWorker(threadName);
 		Set<String> currentPrecedenceConstraint = target.getPrecedenceConstraint();
 		currentPrecedenceConstraint.add(precedenceConstraint);
 		target.setPrecedenceConstraint(currentPrecedenceConstraint);
+		return this;
+	}
+	/***
+	 * For the last worker added sets a number of retry to attempt on a failure and the number of seconds to wait before after a failure before the retry.
+	 * @param retryAttempts the number of times you wish to retry the pool in the even of a failure
+	 * @param retryWaitSeconds the number of seconds to wait after a failure before you retry.
+	 * @return this - for method chaining
+	 */
+	public WorkerPool setWorkerRetry(int retryAttempts, int retryWaitSeconds) {
+		if(lastWorker == null)
+			throw new ArrayIndexOutOfBoundsException("No workers have been added yet");
+		lastWorker.setRetry(retryAttempts, retryWaitSeconds);
+		return this;
+	}
+	/***
+	 * For the passed worker added sets a number of retry to attempt on a failure and the number of seconds to wait before after a failure before the retry.
+	 * @param threadName the name of the worker you wish to modify.
+	 * @param retryAttempts the number of times you wish to retry the pool in the even of a failure
+	 * @param retryWaitSeconds the number of seconds to wait after a failure before you retry.
+	 * @return this - for method chaining
+	 */
+	public WorkerPool setWorkerRetry(String threadName, int retryAttempts, int retryWaitSeconds) {
+		getWorker(threadName).setRetry(retryAttempts, retryWaitSeconds);
 		return this;
 	}
 
@@ -413,7 +484,13 @@ public class WorkerPool {
 		return out;
 	}
 	
-	private WorkerInterface findWorker(String threadName) throws ArrayIndexOutOfBoundsException {
+	/***
+	 * Takes a name of a worker that is in any pool, and returns that worker.
+	 * @param threadName the name of the Worker you are searching for
+	 * @return the worker, as a WorkerInterface
+	 * @throws ArrayIndexOutOfBoundsException thrown if the threadName is not in any pool
+	 */
+	public WorkerInterface getWorker(String threadName) throws ArrayIndexOutOfBoundsException {
 		for(String aKey : keys) {
 			for(WorkerInterface aWorker : pools.get(aKey)) {
 				if(aWorker.getThreadName().equals(threadName)) {
@@ -452,7 +529,7 @@ public class WorkerPool {
 			for(WorkerInterface aWorker : pools.get(aKey)) {
 				Set<String> pc = getCurrentPrecedenceConstraint(aWorker, aKey);
 				for(String aChildName : pc) {
-					WorkerInterface child = this.findWorker(aChildName);
+					WorkerInterface child = this.getWorker(aChildName);
 					if(child.getPrecedenceConstraint() != null) {
 						for(String aGrandChildName : child.getPrecedenceConstraint()) {
 							if(aWorker.getThreadName().equalsIgnoreCase(aGrandChildName)) {
@@ -756,12 +833,50 @@ public class WorkerPool {
 		return this;
 	}
 	
+	//Manages retry pool
 	WorkerPool startOnePoolHelper( String poolName) throws InterruptedException, DuplicateThreadNameException, CircularPrecedenceConstraintException, AlreadyRunningException {
 		if(pools.get(poolName).isEmpty()) {
 			LoggingTemplate.log(logger, LoggingTemplate.getPoolEmptyLevel(), LoggingTemplate.getPoolEmpty(), poolName);
 			keys.remove(poolName);
 			return this;
 		}
+		
+		int maxRetry = 0;
+		if(poolRetry.containsKey(poolName))
+			maxRetry = poolRetry.get(poolName);
+		int retryWait = 0;
+		if(poolRetryWaitSeconds.containsKey(poolName))
+			retryWait = poolRetryWaitSeconds.get(poolName);
+		boolean rerunSucess = false;
+		if(poolRetryRerunSuccess.containsKey(poolName))
+			rerunSucess = poolRetryRerunSuccess.get(poolName);
+		
+		int retry = 0;
+		while(retry <= maxRetry) {
+			if(retry > 0) {
+				LoggingTemplate.log(logger, LoggingTemplate.getRetryLevel(), LoggingTemplate.getRetry(), "Pool", poolName, maxRetry, retry, retryWait);
+				Thread.sleep(retryWait * 1000);
+				for( WorkerInterface aWorker : pools.get(poolName) ) {
+					if(rerunSucess || aWorker.getStatus() != Status.SUCCESS)
+						aWorker.setStatus(Status.PENDING);
+				}
+			}
+			startOnePoolHelperHelper(poolName);
+			if(getStatus(poolName) != Status.SUCCESS) {
+				retry++;
+			} else {
+				break;
+			}
+		}
+		
+		if(poolRunning.containsKey(poolName))
+			poolRunning.remove(poolName);
+		
+		return this;
+	}
+	
+	//Does the actual work to run a pool
+	WorkerPool startOnePoolHelperHelper( String poolName) throws InterruptedException, DuplicateThreadNameException, CircularPrecedenceConstraintException, AlreadyRunningException {
 		//Create signal to allow workers to notify this method when they're done
 		Signal signal = new Signal();
 		Timer timer = new Timer().start();
@@ -774,7 +889,7 @@ public class WorkerPool {
 		//Loop over all workers and assign them threads or put them in waiting
 		boolean keepGoing = true;
 		List<WorkerInterface> myPool = new ArrayList<>();
-		for( WorkerInterface aWorker : pools.get(poolName) )
+		for( WorkerInterface aWorker : pools.get(poolName) ) 
 			myPool.add(aWorker);
 		
 		/* Because of race conditions its possible for us to get the the synchronized block, 
@@ -862,8 +977,6 @@ public class WorkerPool {
 		lastMsg.remove(poolName);
 		lastWarn.remove(poolName);
 		
-		if(poolRunning.containsKey(poolName))
-			poolRunning.remove(poolName);
 		return this;
 	}
 	/***

@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class Worker implements WorkerInterface {
 	protected Set<String> precedenceConstraint;
+	protected int retryAttempts;
+	protected int retryWaitSeconds;
 	protected String threadName;
 	protected Logger logger;
 	protected Status status;
@@ -22,6 +24,8 @@ public abstract class Worker implements WorkerInterface {
 	 */
 	public Worker() {
 		precedenceConstraint = null;
+		retryAttempts = 0;
+		retryWaitSeconds = 0;
 		threadName = this.getClass().getSimpleName();
 		logger = LoggerFactory.getLogger(this.getThreadName());
 		status = Status.PENDING;
@@ -48,6 +52,16 @@ public abstract class Worker implements WorkerInterface {
 			this.precedenceConstraint = new HashSet<>();
 		this.precedenceConstraint.add(precedenceConstraint);
 		return this;
+	}
+	public int getRetryAttempts() {
+		return retryAttempts;
+	}
+	public int getRetryWaitSeconds() {
+		return retryWaitSeconds;
+	}
+	public void setRetry(int retryAttempts, int retryWaitSeconds) {
+		this.retryAttempts = retryAttempts;
+		this.retryWaitSeconds = retryWaitSeconds;
 	}
 	/***
 	 * Used to set the threadName to something other than the default: this.getClass().getSimpleName()
@@ -97,12 +111,26 @@ public abstract class Worker implements WorkerInterface {
 			Timer timer = new Timer().start();
 			LoggingTemplate.log(logger, LoggingTemplate.getWorkerStartLevel(), LoggingTemplate.getWorkerStart(), this.getThreadName());
 			status = Status.RUNNING;
-			try {
-				worker();
-				status = Status.SUCCESS;
-			} catch (Exception e) {
-				LoggingTemplate.log(logger, LoggingTemplate.getWorkerErrorLevel(), LoggingTemplate.getWorkerError(), getThreadName(), e);
-				status = Status.FAILED;
+			int retry = 0;
+			boolean done = false;
+			while(!done){
+				try {
+					worker();
+					status = Status.SUCCESS;
+					done = true;
+				} catch (Exception e) {
+					retry++;
+					if(retry <= retryAttempts) {
+						LoggingTemplate.log(logger, LoggingTemplate.getRetryLevel(), LoggingTemplate.getWorkerError(), getThreadName(), e);
+						LoggingTemplate.log(logger, LoggingTemplate.getRetryLevel(), LoggingTemplate.getRetry(), "Worker", getThreadName(), retryAttempts, retry, retryWaitSeconds);
+						try {Thread.sleep(retryWaitSeconds * 1000);} 
+						catch (InterruptedException ie) {}
+					} else {
+						LoggingTemplate.log(logger, LoggingTemplate.getWorkerErrorLevel(), LoggingTemplate.getWorkerError(), getThreadName(), e);
+						status = Status.FAILED;
+						break;
+					}
+				}
 			}
 			timer.stop();
 			LoggingTemplate.log(logger, LoggingTemplate.getWorkerCompleteLevel(), LoggingTemplate.getWorkerComplete(), this.getThreadName(), status, LoggingTemplate.applyTimerToString( timer ));
